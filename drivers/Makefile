@@ -176,3 +176,5 @@ obj-$(CONFIG_SENSORS_FINGERPRINT)	+= fingerprint/
 
 # gator.ko
 obj-$(CONFIG_GATOR)		+= gator/
+
+obj-$(CONFIG_ANDROID)		+= android/
