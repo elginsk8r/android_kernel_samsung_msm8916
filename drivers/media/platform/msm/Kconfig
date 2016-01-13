@@ -33,12 +33,37 @@ config MSMB_CAMERA_DEBUG
 	---help---
 	  Enable printk() debug for msm camera 2.0
 
-if MSMB_CAMERA
+choice
+	prompt "Qualcomm Camera stack variant"
+	depends on MSMB_CAMERA
+	default MSMB_CAMERA_DEFAULT if !MACH_SAMSUNG && !MACH_WT86518
+	default MSMB_CAMERA_SAMSUNG if MACH_SAMSUNG
+	default MSMB_CAMERA_WT86518 if MACH_WT86518
+
+config MSMB_CAMERA_DEFAULT
+	bool "Default"
+
+config MSMB_CAMERA_SAMSUNG
+	bool "Samsung"
+	depends on MACH_SAMSUNG
+
+config MSMB_CAMERA_WT86518
+	bool "Samsung"
+	depends on MACH_WT86518
+
+endchoice
+
+if MSMB_CAMERA_DEFAULT
 source "drivers/media/platform/msm/camera_v2/Kconfig"
-if CONFIG_MACH_WT86518
+endif # MSMB_CAMERA_DEFAULT
+
+if MSMB_CAMERA_WT86518
 source "drivers/media/platform/msm/camera_wt86518_v2/Kconfig"
-endif
-endif # MSMB_CAMERA
+endif # MSMB_CAMERA_WT86518
+
+if MSMB_CAMERA_SAMSUNG
+source "drivers/media/platform/msm/sec_camera_v2/Kconfig"
+endif # MSMB_CAMERA_SAMSUNG
 
 source "drivers/media/platform/msm/vidc/Kconfig"
 source "drivers/media/platform/msm/wfd/Kconfig"

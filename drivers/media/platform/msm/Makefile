@@ -7,9 +7,7 @@ obj-$(CONFIG_MSM_VIDC_V4L2)     += vidc/
 obj-$(CONFIG_MSM_WFD) += wfd/
 obj-y += broadcast/
 obj-$(CONFIG_DVB_MPQ) += dvb/
-ifeq ($(CONFIG_MACH_WT86518),y)
-obj-$(CONFIG_MSMB_CAMERA) += camera_wt86518_v2/
-else
-obj-$(CONFIG_MSMB_CAMERA) += camera_v2/
-endif
+obj-$(CONFIG_MSMB_CAMERA_DEFAULT) += camera_v2/
+obj-$(CONFIG_MSMB_CAMERA_WT86518) += camera_wt86518_v2/
+obj-$(CONFIG_MSMB_CAMERA_SAMSUNG) += sec_camera_v2/
 obj-$(CONFIG_MSM_VPU) += vpu/
