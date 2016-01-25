@@ -345,6 +345,8 @@ ifeq ($(CONFIG_MACH_GT58WIFI_EUR_OPEN),y)
 dtb-$(CONFIG_ARCH_MSM8916) += apq8016-gt58wifi.dtb
 else ifeq ($(CONFIG_SEC_GT510_PROJECT),y)
 dtb-$(CONFIG_ARCH_MSM8916) += apq8016-gt510wifi.dtb
+else ifeq ($(CONFIG_SEC_ROSSA_PROJECT),y)
+dtb-$(CONFIG_ARCH_MSM8916) += msm8916-rossatmo.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8916) += apq8016-mtp.dtb \
 	msm8916-mtp.dtb \
