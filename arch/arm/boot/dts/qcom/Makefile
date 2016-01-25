@@ -85,6 +85,7 @@ dtb-$(CONFIG_MACH_LENOVO_A6010) += msm8916-wt86528.dtb
 else ifeq ($(CONFIG_MACH_SAMSUNG),y)
 dtb-$(CONFIG_MACH_GT58WIFI_EUR_OPEN) += msm8916-gt58wifi.dtb
 dtb-$(CONFIG_MACH_GT510WIFI_EUR_OPEN) += msm8916-gt510wifi.dtb
+dtb-$(CONFIG_MACH_ROSSA_TMO) += msm8916-rossatmo.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-cdp.dtb \
 	msm8916-cdp-smb1360.dtb \
