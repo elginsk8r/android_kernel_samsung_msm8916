@@ -16,6 +16,21 @@
 
 #include "board-dt.h"
 
+#ifdef CONFIG_MACH_SAMSUNG
+struct class *sec_class;
+EXPORT_SYMBOL(sec_class);
+
+static void samsung_sys_class_init(void)
+{
+	sec_class = class_create(THIS_MODULE, "sec");
+
+	if (IS_ERR(sec_class)) {
+		pr_err("Failed to create class(sec)!\n");
+		return;
+	}
+};
+#endif
+
 void __init board_dt_populate(struct of_dev_auxdata *adata)
 {
 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
@@ -25,4 +40,8 @@ void __init board_dt_populate(struct of_dev_auxdata *adata)
 	 */
 	of_platform_populate(of_find_node_by_path("/soc"),
 			     of_default_bus_match_table, adata, NULL);
+
+#ifdef CONFIG_MACH_SAMSUNG
+	samsung_sys_class_init();
+#endif
 }
