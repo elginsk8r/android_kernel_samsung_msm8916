@@ -3220,8 +3220,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	host_mode = of_usb_get_dr_mode(dwc3_node) == USB_DR_MODE_HOST;
 	/* usb_psy required only for vbus_notifications */
 	if (!host_mode && !mdwc->psy_not_used) {
+#if defined(CONFIG_BATTERY_SAMSUNG)
+		mdwc->usb_psy.name = "dwc-usb";
+		mdwc->usb_psy.type = POWER_SUPPLY_TYPE_UNKNOWN;
+#else
 		mdwc->usb_psy.name = "usb";
 		mdwc->usb_psy.type = POWER_SUPPLY_TYPE_USB;
+#endif
 		mdwc->usb_psy.supplied_to = dwc3_msm_pm_power_supplied_to;
 		mdwc->usb_psy.num_supplicants = ARRAY_SIZE(
 						dwc3_msm_pm_power_supplied_to);
