@@ -1,0 +1,233 @@
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "../msm8916.dtsi"
+
+/ {
+	aliases {
+		smd0 = &smdtty_ds; /* smdtty devices */
+		i2c1 = &i2c_1; /* I2C1 controller device */
+	};
+};
+
+&soc {
+	sound {
+		compatible = "qcom,msm8x16-audio-codec";
+		qcom,model = "msm8x16-snd-card";
+		qcom,msm-snd-card-id = <0>;
+		qcom,msm-codec-type = "internal";
+		qcom,msm-ext-pa = "primary";
+		qcom,msm-mclk-freq = <9600000>;
+		qcom,msm-mbhc-hphl-swh = <0>;
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-hs-micbias-type = "internal";
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"SPK_RX_BIAS", "MCLK",
+			"INT_LDO_H", "MCLK",
+			"MIC BIAS External", "Handset Mic",
+			"MIC BIAS External2", "Headset Mic",
+			"MIC BIAS External", "Secondary Mic",
+			"AMIC1", "MIC BIAS External",
+			"AMIC2", "MIC BIAS External2",
+			"AMIC3", "MIC BIAS External";
+		pinctrl-names = "cdc_lines_act",
+				"cdc_lines_sus";
+		pinctrl-0 = <&cdc_pdm_lines_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus>;
+		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
+				<&loopback>, <&compress>, <&hostless>,
+				<&afe>, <&lsm>, <&routing>, <&lpa>;
+		asoc-platform-names = "msm-pcm-dsp.0", "msm-pcm-dsp.1",
+				"msm-voip-dsp", "msm-pcm-voice", "msm-pcm-loopback",
+				"msm-compress-dsp", "msm-pcm-hostless", "msm-pcm-afe",
+				"msm-lsm-client", "msm-pcm-routing", "msm-pcm-lpa";
+		asoc-cpu = <&dai_pri_auxpcm>, <&dai_hdmi>,
+				<&dai_mi2s0>, <&dai_mi2s1>, <&dai_mi2s2>, <&dai_mi2s3>,
+				<&sb_0_rx>, <&sb_0_tx>, <&sb_1_rx>, <&sb_1_tx>,
+				<&sb_3_rx>, <&sb_3_tx>, <&sb_4_rx>, <&sb_4_tx>,
+				<&bt_sco_rx>, <&bt_sco_tx>, <&bt_a2dp_rx>,
+				<&int_fm_rx>, <&int_fm_tx>,
+				<&afe_pcm_rx>, <&afe_pcm_tx>, <&afe_proxy_rx>, <&afe_proxy_tx>,
+				<&incall_record_rx>, <&incall_record_tx>, <&incall_music_rx>,
+				<&incall_music_2_rx>;
+		asoc-cpu-names = "msm-dai-q6-auxpcm.1", "msm-dai-q6-hdmi.8",
+				"msm-dai-q6-mi2s.0", "msm-dai-q6-mi2s.1",
+				"msm-dai-q6-mi2s.2", "msm-dai-q6-mi2s.3",
+				"msm-dai-q6-dev.16384", "msm-dai-q6-dev.16385",
+				"msm-dai-q6-dev.16386", "msm-dai-q6-dev.16387",
+				"msm-dai-q6-dev.16390", "msm-dai-q6-dev.16391",
+				"msm-dai-q6-dev.16392", "msm-dai-q6-dev.16393",
+				"msm-dai-q6-dev.12288", "msm-dai-q6-dev.12289",
+				"msm-dai-q6-dev.12290", "msm-dai-q6-dev.12292",
+				"msm-dai-q6-dev.12293", "msm-dai-q6-dev.224",
+				"msm-dai-q6-dev.225", "msm-dai-q6-dev.241",
+				"msm-dai-q6-dev.240", "msm-dai-q6-dev.32771",
+				"msm-dai-q6-dev.32772", "msm-dai-q6-dev.32773",
+				"msm-dai-q6-dev.32770";
+		asoc-codec = <&stub_codec>, <&pm8916_tombak_dig>;
+		asoc-codec-names = "msm-stub-codec.1", "tombak_codec";
+	};
+
+	qcom,smdtty {
+		smdtty_ds: qcom,smdtty-ds {
+			qcom,smdtty-remote = "modem";
+			qcom,smdtty-port-name = "DS";
+		};
+	};
+
+	i2c_1: i2c@78b5000 { /* BLSP1 QUP1 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		reg = <0x78b5000 0x600>;
+		interrupt-names = "qup_irq";
+		interrupts = <0 95 0>;
+		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup1_i2c_apps_clk>;
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_1_active>;
+		pinctrl-1 = <&i2c_1_sleep>;
+		qcom,noise-rjct-scl = <0>;
+		qcom,noise-rjct-sda = <0>;
+		dmas = <&dma_blsp1 4 64 0x20000020 0x20>,
+			<&dma_blsp1 5 32 0x20000020 0x20>;
+		dma-names = "tx", "rx";
+		qcom,master-id = <86>;
+	};
+
+	qcom,msm-cam {
+		compatible = "qcom,cam_dummy";
+	};
+
+	usb_noti: usb-notifier {
+		compatible = "samsung,usb-notifier";
+	};
+};
+
+&usb_otg {
+	interrupts = <0 1 2>;
+	interrupt-names = "core_irq", "async_irq", "pmic_id_irq";
+
+	#address-cells = <0>;
+	interrupt-parent = <&usb_otg>;
+
+	#interrupt-cells = <1>;
+	interrupt-map-mask = <0xffffffff>;
+	interrupt-map = <0 &intc 0 134 0
+			1 &intc 0 140 0
+			2 &spmi_bus 0x0 0x0 0x9 0x0>;
+};
+
+&android_usb {
+	qcom,streaming-func = "mtp", "ptp";
+};
+
+&qcom_seecom {
+	reg = <0x85500000 0x800000>;
+};
+
+&dai_mi2s3 {
+	qcom,msm-mi2s-rx-lines = <2>;
+	qcom,msm-mi2s-tx-lines = <1>;
+};
+
+&i2c_5 { /* BLSP1 QUP5 */
+	qcom,clk-freq-out = <400000>;
+};
+
+&pm8916_pon {
+	interrupts = <0x0 0x8 0x0>,
+		     <0x0 0x8 0x1>,
+		     <0x0 0x8 0x4>,
+		     <0x0 0x8 0x5>;
+	interrupt-names = "kpdpwr", "resin",
+		"resin-bark", "kpdpwr-resin-bark";
+	/delete-property/ qcom,store-hard-reset-reason;
+	qcom,s3-debounce = <128>;
+	qcom,pon_1 {
+		qcom,disable-reset = <1>;
+		qcom,s1-timer = <6720>;
+	};
+
+	qcom,pon_2 {
+		qcom,disable-reset = <1>;
+		qcom,support-reset = <0>;
+	};
+
+	qcom,pon_3 {
+		qcom,pon-type = <3>;
+		qcom,support-reset = <1>;
+		qcom,pull-up = <1>;
+		qcom,s1-timer = <6720>;
+		qcom,s2-timer = <1000>;
+		qcom,s2-type = <1>;
+		qcom,use-bark;
+	};
+};
+
+&pm8916_vadc {
+	chan@11 {
+		label = "mpp2_div1";
+		reg = <0x11>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "absolute";
+		qcom,scale-function = <0>;
+		qcom,hw-settle-time = <0>;
+		qcom,fast-avg-setup = <0>;
+	};
+};
+
+&pm8916_adc_tm {
+	chan@36 {
+		label = "pa_therm0";
+		reg = <0x36>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <2>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+		qcom,btm-channel-number = <0x70>;
+		qcom,thermal-node;
+	};
+};
+
+&mdss_dsi0 {
+	/delete-property/ gdsc-supply;
+	/delete-property/ vdda-supply;
+	/delete-property/ vdd-supply;
+	/delete-property/ vddio-supply;
+	/delete-property/ qcom,dsi-clk-ln-recovery;
+	/delete-property/ qcom,timing-db-mode;
+	/delete-node/ qcom,core-supply-entries;
+	/delete-node/ qcom,ctrl-supply-entries;
+	/delete-node/ qcom,panel-supply-entries;
+};
+
+&apc_vreg_corner {
+	qcom,cpr-voltage-floor = <1050000 1150000 1350000>;
+};
+
+&pm8916_l17 {
+	regulator-max-microvolt = <3100000>;
+};
+
+&pm8916_l5 {
+	regulator-max-microvolt = <1850000>;
+	qcom,init-voltage = <1850000>;
+};
