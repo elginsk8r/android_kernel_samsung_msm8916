@@ -34,6 +34,12 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/syscore_ops.h>
 
+#ifdef CONFIG_MACH_SAMSUNG
+extern struct class *sec_class;
+struct device *sec_key;
+EXPORT_SYMBOL(sec_key);
+#endif
+
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
 	struct input_dev *input;
@@ -517,6 +523,11 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 		irqflags = 0;
 	}
 
+#ifdef CONFIG_MACH_SAMSUNG
+	/*don't send dummy release event when system resumes*/
+	__set_bit(INPUT_PROP_NO_DUMMY_RELEASE, input->propbit);
+#endif
+
 	input_set_capability(input, button->type ?: EV_KEY, button->code);
 
 	/*
@@ -729,6 +740,28 @@ gpio_keys_get_devtree_pdata(struct device *dev)
 
 #endif
 
+#ifdef CONFIG_MACH_SAMSUNG
+static ssize_t sysfs_key_onoff_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
+	int index ;
+	int state = 0;
+	for (index = 0; index < ddata->pdata->nbuttons; index++) {
+		struct gpio_button_data *button;
+		button = &ddata->data[index];
+		state = (gpio_get_value_cansleep(button->button->gpio) ? 1 : 0)\
+			^ button->button->active_low;
+		if (state == 1)
+			break;
+	}
+
+	pr_info("key state:%d\n",  state);
+	return snprintf(buf, 5, "%d\n", state);
+}
+static DEVICE_ATTR(sec_key_pressed, 0444 , sysfs_key_onoff_show, NULL);
+#endif
+
 static int gpio_keys_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -826,6 +859,20 @@ static int gpio_keys_probe(struct platform_device *pdev)
 			error);
 		goto err_remove_group;
 	}
+
+#ifdef CONFIG_MACH_SAMSUNG
+	sec_key = device_create(sec_class, NULL, 0, NULL, "sec_key");
+	if (IS_ERR(sec_key))
+		pr_err("Failed to create device(sec_key)!\n");
+
+	error = device_create_file(sec_key, &dev_attr_sec_key_pressed);
+	if (error) {
+		pr_err("Failed to create device file in sysfs entries(%s)!\n",
+				dev_attr_sec_key_pressed.attr.name);
+	}
+
+	dev_set_drvdata(sec_key, ddata);
+#endif
 
 	device_init_wakeup(&pdev->dev, wakeup);
 
