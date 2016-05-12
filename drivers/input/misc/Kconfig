@@ -1165,5 +1165,11 @@ config SENSORS_TCS3490
 	help
 	  This option enables light sensor using TCS3490 driver.
 
+config SENSORS_SAMSUNG_HALL
+	tristate "Samsung Hall sensor support"
+	default n
+	help
+	  If you say yes here you get support for Samsung's Hall sensor.
+
 endif
 
