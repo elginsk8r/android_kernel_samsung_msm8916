@@ -74,6 +74,7 @@ obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_SENSORS_LTR553)	+= ltr553.o
 obj-$(CONFIG_SENSORS_BMA2X2)	+= bstclass.o
+obj-$(CONFIG_SENSORS_K2HH)		+= k2hh.o
 
 obj-$(CONFIG_SENSORS_BMA2X2)	+= bma2x2.o
 ifeq ($(CONFIG_SENSORS_BMA2X2_ENABLE_INT1),y)
