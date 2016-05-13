@@ -88,11 +88,16 @@ static int i2c_gpio_getscl(void *data)
 static int of_i2c_gpio_get_pins(struct device_node *np,
 				unsigned int *sda_pin, unsigned int *scl_pin)
 {
+#ifdef CONFIG_MACH_SAMSUNG
+	*sda_pin = of_get_named_gpio(np, "i2c-gpio-sda", 0);
+	*scl_pin = of_get_named_gpio(np, "i2c-gpio-scl", 0);
+#else
 	if (of_gpio_count(np) < 2)
 		return -ENODEV;
 
 	*sda_pin = of_get_gpio(np, 0);
 	*scl_pin = of_get_gpio(np, 1);
+#endif
 
 	if (*sda_pin == -EPROBE_DEFER || *scl_pin == -EPROBE_DEFER)
 		return -EPROBE_DEFER;
