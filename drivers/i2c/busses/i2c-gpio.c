@@ -91,8 +91,13 @@ static int of_i2c_gpio_get_pins(struct device_node *np,
 	if (of_gpio_count(np) < 2)
 		return -ENODEV;
 
-	*sda_pin = of_get_gpio(np, 0);
-	*scl_pin = of_get_gpio(np, 1);
+	*sda_pin = of_get_named_gpio(np, "i2c-gpio-sda", 0);
+	*scl_pin = of_get_named_gpio(np, "i2c-gpio-scl", 0);
+
+	if (!gpio_is_valid(*sda_pin) || !gpio_is_valid(*scl_pin)) {
+		*sda_pin = of_get_gpio(np, 0);
+		*scl_pin = of_get_gpio(np, 1);
+	}
 
 	if (!gpio_is_valid(*sda_pin) || !gpio_is_valid(*scl_pin)) {
 		pr_err("%s: invalid GPIO pins, sda=%d/scl=%d\n",
