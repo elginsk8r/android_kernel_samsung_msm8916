@@ -49,6 +49,9 @@ obj-$(CONFIG_ARCH_BERLIN)	+= berlin/
 obj-y				+= freescale/
 obj-$(CONFIG_PLAT_ORION)        += mvebu/
 obj-$(CONFIG_ARCH_MSM)		+= qcom/
+ifeq ($(CONFIG_PINCTRL_MSM),y)
+obj-$(CONFIG_MACH_SAMSUNG)	+= sec-pinmux.o
+endif
 obj-$(CONFIG_PINCTRL_SAMSUNG)	+= samsung/
 obj-$(CONFIG_PINCTRL_SH_PFC)	+= sh-pfc/
 obj-$(CONFIG_PLAT_SPEAR)	+= spear/
