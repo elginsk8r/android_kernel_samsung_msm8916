@@ -476,6 +476,8 @@ struct input_keymap_entry {
 
 #define KEY_MICMUTE		248	/* Mute / unmute the microphone */
 
+#define KEY_RECENT		254	/* Add for Samsung keypad */
+
 /* Gesture keycodes */
 #define KEY_GESTURE_SLIDE_DOWN		249
 #define KEY_GESTURE_SLIDE_LEFT		250
@@ -868,6 +870,8 @@ struct input_keymap_entry {
 #define ABS_MT_TOOL_X		0x3c	/* Center X tool position */
 #define ABS_MT_TOOL_Y		0x3d	/* Center Y tool position */
 
+#define ABS_MT_PALM		0x3e	/* Palm touch */
+#define ABS_MT_GRIP		0x3f	/* Grip touch */
 
 #define ABS_MAX			0x3f
 #define ABS_CNT			(ABS_MAX+1)
