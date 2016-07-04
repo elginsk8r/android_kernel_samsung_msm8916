@@ -32,6 +32,10 @@
 #include "../codecs/msm8x16-wcd.h"
 #include "../codecs/wsa881x-analog.h"
 #include <linux/regulator/consumer.h>
+#ifdef CONFIG_SAMSUNG_JACK
+#include <linux/sec_jack.h>
+#endif /* CONFIG_SAMSUNG_JACK */
+
 #define DRV_NAME "msm8952-asoc-wcd"
 
 #define BTSCO_RATE_8KHZ 8000
@@ -87,6 +91,12 @@ static int msm8952_mclk_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
 static int msm8952_wsa_switch_event(struct snd_soc_dapm_widget *w,
 			      struct snd_kcontrol *kcontrol, int event);
+
+#ifdef CONFIG_SAMSUNG_JACK
+//Enabling the MIC Bias Voltage of Earmic
+static struct snd_soc_jack hs_jack;
+static struct mutex jack_mutex;
+#endif /* CONFIG_SAMSUNG_JACK */
 
 /*
  * Android L spec
@@ -220,6 +230,25 @@ static int Secondary_mic_bias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 #endif /* CONFIG_AUDIO_SECONDARY_MIC_USE_EXT_BIAS_ENABLE */
+
+#ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
+static int mic_enable = false;
+static int jack_connected = false;
+static int dynamic_micb_ctrl_voltage = 0;
+
+int is_mic_enable(void)
+{
+	return mic_enable;
+}
+
+int set_dynamic_micb_ctrl_voltage(int voltage)
+{
+	/* Convert voltage to reg value */
+	dynamic_micb_ctrl_voltage = (voltage - 160) * 2 / 10;
+
+	return dynamic_micb_ctrl_voltage;
+}
+#endif
 
 static const struct snd_soc_dapm_widget msm8952_dapm_widgets[] = {
 
@@ -1359,6 +1388,13 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 			substream->name, substream->stream);
 
+#ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE && jack_connected) {
+		mic_enable = false;
+		msm8x16_wcd_dynamic_control_micbias(dynamic_micb_ctrl_voltage);
+	}
+#endif
+
 	ret = msm_mi2s_sclk_ctl(substream, false);
 	if (ret < 0)
 		pr_err("%s:clock disable failed; ret=%d\n", __func__,
@@ -1393,6 +1429,13 @@ static int msm_prim_auxpcm_startup(struct snd_pcm_substream *substream)
 		pr_err("%s(): adsp not ready\n", __func__);
 		return -EINVAL;
 	}
+
+#ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE && jack_connected) {
+		mic_enable = true;
+		msm8x16_wcd_dynamic_control_micbias(MIC_BIAS_V2P80V);
+	}
+#endif
 
 	/* mux config to route the AUX MI2S */
 	if (pdata->vaddr_gpio_mux_mic_ctl) {
@@ -1766,6 +1809,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	msm8x16_wcd_spk_ext_pa_cb(enable_spk_ext_pa, codec);
 	msm8x16_wcd_hph_comp_cb(config_hph_compander_gpio, codec);
 
+#ifdef CONFIG_SAMSUNG_JACK
+	hs_jack.codec = codec;
+	return 0;
+#endif /* CONFIG_SAMSUNG_JACK */
+
 	mbhc_cfg.calibration = def_msm8952_wcd_mbhc_cal();
 	if (mbhc_cfg.calibration) {
 		ret = msm8x16_wcd_hs_detect(codec, &mbhc_cfg);
@@ -1777,6 +1825,47 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	}
 	return 0;
 }
+
+#ifdef CONFIG_SAMSUNG_JACK
+char *mic_bias_str = NULL;
+char *ext_mic_bias_str = "Headset Mic";
+char *int_mic_bias_str = "MIC BIAS2 Power External";
+
+void msm8x16_enable_ear_micbias(bool state)
+{
+	int nRetVal = 0;
+	struct snd_soc_jack *jack = &hs_jack;
+	struct snd_soc_codec *codec;
+	struct snd_soc_dapm_context *dapm;
+	char *str = mic_bias_str;
+
+	printk("%s : str: %s\n", __func__, str);
+
+	if (jack->codec == NULL) { /* audrx_init not yet called */
+		pr_err("%s codec==NULL\n", __func__);
+		return;
+	}
+	codec = jack->codec;
+	dapm = &codec->dapm;
+	mutex_lock(&jack_mutex);
+
+	if (state == 1) {
+		nRetVal = snd_soc_dapm_force_enable_pin(dapm, str);
+		pr_info("%s enable the codec  pin : %d with state :%d\n"
+				, __func__, nRetVal, state);
+	} else{
+		nRetVal = snd_soc_dapm_disable_pin(dapm, str);
+		pr_info("%s disable the codec  pin : %d with state :%d\n"
+				, __func__, nRetVal, state);
+	}
+#ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
+	jack_connected = state;
+#endif
+	snd_soc_dapm_sync(dapm);
+	mutex_unlock(&jack_mutex);
+}
+EXPORT_SYMBOL(msm8x16_enable_ear_micbias);
+#endif /* CONFIG_SAMSUNG_JACK */
 
 static struct snd_soc_ops msm8952_quat_mi2s_be_ops = {
 	.startup = msm_quat_mi2s_snd_startup,
@@ -3374,9 +3463,15 @@ parse_mclk_freq:
 	}
 	if (!strcmp(type, "external")) {
 		dev_dbg(&pdev->dev, "Headset is using external micbias\n");
+#ifdef CONFIG_SAMSUNG_JACK
+		mic_bias_str = ext_mic_bias_str;
+#endif /* CONFIG_SAMSUNG_JACK */
 		mbhc_cfg.hs_ext_micbias = true;
 	} else {
 		dev_dbg(&pdev->dev, "Headset is using internal micbias\n");
+#ifdef CONFIG_SAMSUNG_JACK
+		mic_bias_str = int_mic_bias_str;
+#endif /* CONFIG_SAMSUNG_JACK */
 		mbhc_cfg.hs_ext_micbias = false;
 	}
 
@@ -3458,6 +3553,11 @@ parse_mclk_freq:
 			ret);
 		goto err;
 	}
+
+#ifdef CONFIG_SAMSUNG_JACK
+	mutex_init(&jack_mutex);	
+#endif /* CONFIG_SAMSUNG_JACK */
+
 	return 0;
 err:
 	if (pdata->vaddr_gpio_mux_spkr_ctl)
