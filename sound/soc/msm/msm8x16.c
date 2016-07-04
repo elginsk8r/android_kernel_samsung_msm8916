@@ -37,6 +37,9 @@
 #include "../codecs/wcd9335.h"
 #include "msm-audio-pinctrl.h"
 #include "../codecs/wsa881x.h"
+#ifdef CONFIG_SAMSUNG_JACK
+#include <linux/sec_jack.h>
+#endif /* CONFIG_SAMSUNG_JACK */
 
 #ifdef CONFIG_MACH_T86519A1
 #include "../codecs/vegas.h"
@@ -110,6 +113,7 @@ static int msm8x16_enable_extcodec_ext_clk(struct snd_soc_codec *codec,
 
 static int conf_int_codec_mux(struct msm8916_asoc_mach_data *pdata);
 
+#ifndef CONFIG_SAMSUNG_JACK
 static void *def_tasha_mbhc_cal(void);
 /*
  * Android L spec
@@ -255,6 +259,11 @@ void *def_tapan_mbhc_cal(void)
 	gain[1] = 14;
 	return tapan_cal;
 }
+#else
+//Enabling the MIC Bias Voltage of Earmic
+static struct snd_soc_jack hs_jack;
+static struct mutex jack_mutex;
+#endif /* CONFIG_SAMSUNG_JACK */
 
 static struct afe_clk_cfg mi2s_rx_clk_v1 = {
 	AFE_API_VERSION_I2S_CONFIG,
@@ -426,6 +435,25 @@ static int Secondary_mic_bias(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 #endif /* CONFIG_AUDIO_SECONDARY_MIC_USE_EXT_BIAS_ENABLE */
+
+#ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
+static int mic_enable = false;
+static int jack_connected = false;
+static int dynamic_micb_ctrl_voltage = 0;
+
+int is_mic_enable(void)
+{
+	return mic_enable;
+}
+
+int set_dynamic_micb_ctrl_voltage(int voltage)
+{
+	/* Convert voltage to reg value */
+	dynamic_micb_ctrl_voltage = (voltage - 160) * 2 / 10;
+
+	return dynamic_micb_ctrl_voltage;
+}
+#endif
 
 static const struct snd_soc_dapm_widget msm8x16_dapm_widgets[] = {
 
@@ -1534,6 +1562,13 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 
+#ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE && jack_connected) {
+		mic_enable = false;
+		msm8x16_wcd_dynamic_control_micbias(dynamic_micb_ctrl_voltage);
+	}
+#endif
+
 	if (!pdata->codec_type) {
 		ret = ext_mi2s_clk_ctl(substream, false);
 		if (ret < 0)
@@ -1931,6 +1966,13 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 		 substream->name, substream->stream);
 
+#ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
+	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE && jack_connected) {
+		mic_enable = true;
+		msm8x16_wcd_dynamic_control_micbias(MIC_BIAS_V2P80V);
+	}
+#endif
+
 	if (!pdata->codec_type) {
 		ret = conf_int_codec_mux(pdata);
 		if (ret < 0) {
@@ -1994,6 +2036,7 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	return ret;
 }
 
+#ifndef CONFIG_SAMSUNG_JACK
 static void *def_msm8x16_wcd_mbhc_cal(void)
 {
 	void *msm8x16_wcd_cal;
@@ -2072,6 +2115,7 @@ static void *def_msm8x16_wcd_mbhc_cal(void)
 
 	return msm8x16_wcd_cal;
 }
+#endif /* CONFIG_SAMSUNG_JACK */
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
@@ -2079,7 +2123,9 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+#ifndef CONFIG_SAMSUNG_JACK
 	int ret = -ENOMEM;
+#endif /* CONFIG_SAMSUNG_JACK */
 
 	pr_debug("%s(),dev_name%s\n", __func__, dev_name(cpu_dai->dev));
 
@@ -2108,6 +2154,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	msm8x16_wcd_spk_ext_pa_cb(enable_spk_ext_pa, codec);
 
+#ifndef CONFIG_SAMSUNG_JACK
 	mbhc_cfg.calibration = def_msm8x16_wcd_mbhc_cal();
 	if (mbhc_cfg.calibration) {
 		ret = msm8x16_wcd_hs_detect(codec, &mbhc_cfg);
@@ -2118,6 +2165,10 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		}
 	}
 	return msm8x16_wcd_hs_detect(codec, &mbhc_cfg);
+#else
+	hs_jack.codec = codec;
+	return 0;
+#endif /* CONFIG_SAMSUNG_JACK */
 }
 
 static int msm_audrx_init_wcd(struct snd_soc_pcm_runtime *rtd)
@@ -2157,12 +2208,14 @@ static int msm_audrx_init_wcd(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "SPK2 OUT");
 	snd_soc_dapm_sync(dapm);
 
+#ifndef CONFIG_SAMSUNG_JACK
 	/* start mbhc */
 	wcd_mbhc_cfg.calibration = def_tasha_mbhc_cal();
 	if (wcd_mbhc_cfg.calibration)
 		ret = tasha_mbhc_hs_detect(codec, &wcd_mbhc_cfg);
 	else
 		ret = -ENOMEM;
+#endif /* CONFIG_SAMSUNG_JACK */
 
 	card = rtd->card->snd_card;
 	entry = snd_register_module_info(card->module,
@@ -2179,6 +2232,47 @@ static int msm_audrx_init_wcd(struct snd_soc_pcm_runtime *rtd)
 
 	return ret;
 }
+
+#ifdef CONFIG_SAMSUNG_JACK
+char *mic_bias_str = NULL;
+char *ext_mic_bias_str = "Headset Mic";
+char *int_mic_bias_str = "MIC BIAS2 Power External";
+
+void msm8x16_enable_ear_micbias(bool state)
+{
+	int nRetVal = 0;
+	struct snd_soc_jack *jack = &hs_jack;
+	struct snd_soc_codec *codec;
+	struct snd_soc_dapm_context *dapm;
+	char *str = mic_bias_str;
+
+	printk("%s : str: %s\n", __func__, str);
+
+	if (jack->codec == NULL) { /* audrx_init not yet called */
+		pr_err("%s codec==NULL\n", __func__);
+		return;
+	}
+	codec = jack->codec;
+	dapm = &codec->dapm;
+	mutex_lock(&jack_mutex);
+
+	if (state == 1) {
+		nRetVal = snd_soc_dapm_force_enable_pin(dapm, str);
+		pr_info("%s enable the codec  pin : %d with state :%d\n"
+				, __func__, nRetVal, state);
+	} else{
+		nRetVal = snd_soc_dapm_disable_pin(dapm, str);
+		pr_info("%s disable the codec  pin : %d with state :%d\n"
+				, __func__, nRetVal, state);
+	}
+#ifdef CONFIG_DYNAMIC_MICBIAS_CONTROL
+	jack_connected = state;
+#endif
+	snd_soc_dapm_sync(dapm);
+	mutex_unlock(&jack_mutex);
+}
+EXPORT_SYMBOL(msm8x16_enable_ear_micbias);
+#endif /* CONFIG_SAMSUNG_JACK */
 
 static struct snd_soc_ops msm8x16_quat_mi2s_be_ops = {
 	.startup = msm_quat_mi2s_snd_startup,
@@ -3269,6 +3363,7 @@ void disable_mclk(struct work_struct *work)
 	mutex_unlock(&pdata->cdc_mclk_mutex);
 }
 
+#ifndef CONFIG_SAMSUNG_JACK
 static bool msm8x16_swap_gnd_mic(struct snd_soc_codec *codec)
 {
 	struct snd_soc_card *card = codec->card;
@@ -3297,6 +3392,7 @@ static bool msm8x16_swap_gnd_mic(struct snd_soc_codec *codec)
 
 	return true;
 }
+
 #ifdef CONFIG_MACH_JALEBI
 static int msm8x16_ext_spk_pa_init(struct platform_device *pdev,
 		struct msm8916_asoc_mach_data *pdata)
@@ -3317,6 +3413,7 @@ static int msm8x16_ext_spk_pa_init(struct platform_device *pdev,
 	return 0;
 }
 #endif
+
 static int msm8x16_setup_hs_jack(struct platform_device *pdev,
 			struct msm8916_asoc_mach_data *pdata)
 {
@@ -3363,6 +3460,7 @@ static int msm8x16_setup_hs_jack(struct platform_device *pdev,
 	}
 	return 0;
 }
+#endif /* CONFIG_SAMSUNG_JACK */
 
 static void msm8x16_dt_parse_cap_info(struct platform_device *pdev,
 			struct msm8916_asoc_mach_data *pdata)
@@ -3878,10 +3976,18 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 	}
 	if (!strcmp(type, "external")) {
 		dev_dbg(&pdev->dev, "Headset is using external micbias\n");
+#ifdef CONFIG_SAMSUNG_JACK
+		mic_bias_str = ext_mic_bias_str;
+#else
 		mbhc_cfg.hs_ext_micbias = true;
+#endif /* CONFIG_SAMSUNG_JACK */
 	} else {
 		dev_dbg(&pdev->dev, "Headset is using internal micbias\n");
+#ifdef CONFIG_SAMSUNG_JACK
+		mic_bias_str = int_mic_bias_str;
+#else
 		mbhc_cfg.hs_ext_micbias = false;
+#endif /* CONFIG_SAMSUNG_JACK */
 	}
 
 #ifdef CONFIG_AUDIO_SECONDARY_MIC_USE_EXT_BIAS_ENABLE
@@ -3915,7 +4021,9 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 	/* Initialize loopback mode to false */
 	pdata->lb_mode = false;
 
+#ifndef CONFIG_SAMSUNG_JACK
 	msm8x16_setup_hs_jack(pdev, pdata);
+#endif /* CONFIG_SAMSUNG_JACK */
 	msm8x16_dt_parse_cap_info(pdev, pdata);
 
 	card->dev = &pdev->dev;
@@ -3957,6 +4065,10 @@ static int msm8x16_asoc_machine_probe(struct platform_device *pdev)
 				__func__, ret);
 		goto err;
 	}
+
+#ifdef CONFIG_SAMSUNG_JACK
+	mutex_init(&jack_mutex);	
+#endif /* CONFIG_SAMSUNG_JACK */
 
 	return 0;
 err:
