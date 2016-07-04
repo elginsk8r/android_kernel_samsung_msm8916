@@ -204,13 +204,34 @@ static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
 	}
 }
 
+#ifdef CONFIG_AUDIO_SECONDARY_MIC_USE_EXT_BIAS_ENABLE
+static int Secondary_mic_bias(struct snd_soc_dapm_widget *w,
+			     struct snd_kcontrol *k, int event)
+{
+	struct msm8916_asoc_mach_data *pdata = NULL;
+	pdata = snd_soc_card_get_drvdata(w->codec->card);
+
+	pr_debug("%s() event=%d\n", __func__, event);
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		gpio_direction_output(pdata->mic_bias_gpio, 1);
+	else
+		gpio_direction_output(pdata->mic_bias_gpio, 0);
+
+	return 0;
+}
+#endif /* CONFIG_AUDIO_SECONDARY_MIC_USE_EXT_BIAS_ENABLE */
+
 static const struct snd_soc_dapm_widget msm8952_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY_S("MCLK", -1, SND_SOC_NOPM, 0, 0,
 	msm8952_mclk_event, SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
+#ifdef CONFIG_AUDIO_SECONDARY_MIC_USE_EXT_BIAS_ENABLE
+	SND_SOC_DAPM_MIC("Secondary Mic", Secondary_mic_bias),
+#else
 	SND_SOC_DAPM_MIC("Secondary Mic", NULL),
+#endif /* CONFIG_AUDIO_SECONDARY_MIC_USE_EXT_BIAS_ENABLE */
 	SND_SOC_DAPM_MIC("Digital Mic1", NULL),
 	SND_SOC_DAPM_MIC("Digital Mic2", NULL),
 	SND_SOC_DAPM_SUPPLY("VDD_WSA_SWITCH", SND_SOC_NOPM, 0, 0,
@@ -3359,12 +3380,24 @@ parse_mclk_freq:
 		mbhc_cfg.hs_ext_micbias = false;
 	}
 
+#ifdef CONFIG_AUDIO_SECONDARY_MIC_USE_EXT_BIAS_ENABLE
+	pdata->mic_bias_gpio = of_get_named_gpio(pdev->dev.of_node,
+				  "qcom,secondary-mic-bias-gpio", 0);
+	ret = gpio_request(pdata->mic_bias_gpio, "sub mic bias");
+	if (ret) {
+		pr_err("%s : gpio_request failed for %d\n", __func__,
+			pdata->mic_bias_gpio);
+	}
+	gpio_direction_output(pdata->mic_bias_gpio, 0);
+#endif /* CONFIG_AUDIO_SECONDARY_MIC_USE_EXT_BIAS_ENABLE */
+
 	ret = of_property_read_u32(pdev->dev.of_node,
 				  "qcom,msm-afe-clk-ver", &val);
 	if (ret)
 		pdata->afe_clk_ver = AFE_CLK_VERSION_V2;
 	else
 		pdata->afe_clk_ver = val;
+
 	/* initialize the mclk */
 	pdata->digital_cdc_clk.i2s_cfg_minor_version =
 					AFE_API_VERSION_I2S_CONFIG;
