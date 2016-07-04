@@ -1018,11 +1018,50 @@ static uint32_t get_mi2s_tx_clk_val(void)
 	return mi2s_tx_sample_rate * bits_per_sample * 2;
 }
 
+#ifdef CONFIG_AUDIO_SPEAKER_OUT_NXP_AMP_ENABLE
+extern unsigned int system_rev;
+int msm_q6_enable_mi2s_clocks(bool enable)
+{
+	union afe_port_config port_config;
+	int rc = 0;
+
+	printk(KERN_ERR"set msm_q6_enable_mi2s_clocks system_rev=%d enable=%d\n", system_rev, enable);
+	if(enable) {
+		port_config.i2s.channel_mode = AFE_PORT_I2S_SD1;
+		port_config.i2s.mono_stereo = MSM_AFE_CH_STEREO;
+		port_config.i2s.data_format= 0;
+		port_config.i2s.bit_width = 16;
+		port_config.i2s.reserved = 0;
+		port_config.i2s.i2s_cfg_minor_version = AFE_API_VERSION_I2S_CONFIG;
+		port_config.i2s.sample_rate = 48000;
+		port_config.i2s.ws_src = 1;
+
+		rc = afe_port_start(AFE_PORT_ID_QUATERNARY_MI2S_RX, &port_config, 48000);
+
+		if (IS_ERR_VALUE(rc)) {
+			printk(KERN_ERR"fail to open AFE port\n");
+			return -EINVAL;
+		}
+	} else {
+		rc = afe_close(AFE_PORT_ID_QUATERNARY_MI2S_RX);
+		if (IS_ERR_VALUE(rc)) {
+			printk(KERN_ERR"fail to close AFE port\n");
+			return -EINVAL;
+		}
+	}
+	return rc;
+}
+#endif
+
 static int ext_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 {
 	int ret = 0;
 	int port_id = 0;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+#ifdef CONFIG_AUDIO_SPEAKER_OUT_NXP_AMP_ENABLE
+	struct snd_soc_card *card = rtd->card;
+	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+#endif
 
 	port_id = msm8x16_get_port_id(rtd->dai_link->be_id);
 	if (port_id < 0) {
@@ -1086,6 +1125,11 @@ static int ext_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 		if (ret < 0)
 			pr_err("%s:afe_set_lpass_clock failed ret=%d\n",
 					__func__, ret);
+
+#ifdef CONFIG_AUDIO_SPEAKER_OUT_NXP_AMP_ENABLE
+		if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) && (pdata->ext_pa & QUAT_MI2S_ID))
+			msm_q6_enable_mi2s_clocks(true);
+#endif
 	} else {
 		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 			switch (q6core_get_avs_version()) {
@@ -1142,6 +1186,11 @@ static int ext_mi2s_clk_ctl(struct snd_pcm_substream *substream, bool enable)
 		if (ret < 0)
 				pr_err("%s:afe_set_lpass_clock failed ret=%d\n",
 					__func__, ret);
+
+#ifdef CONFIG_AUDIO_SPEAKER_OUT_NXP_AMP_ENABLE
+		if ((substream->stream == SNDRV_PCM_STREAM_PLAYBACK) && (pdata->ext_pa & QUAT_MI2S_ID))
+			msm_q6_enable_mi2s_clocks(false);
+#endif
 	}
 	return ret;
 }
