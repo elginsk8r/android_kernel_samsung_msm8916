@@ -341,9 +341,13 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-pm8916-mtp.dtb \
 	apq8009-ext-codec-dragon.dtb \
 	apq8009-dragon.dtb
 
+ifeq ($(CONFIG_MACH_GT58WIFI_EUR_OPEN),y)
+dtb-$(CONFIG_ARCH_MSM8916) += apq8016-gt58wifi.dtb
+else
 dtb-$(CONFIG_ARCH_MSM8916) += apq8016-mtp.dtb \
 	msm8916-mtp.dtb \
 	msm8916-mtp-smb1360.dtb
+endif
 
 ifeq ($(CONFIG_ARM64),y)
 always          := $(dtb-y)
