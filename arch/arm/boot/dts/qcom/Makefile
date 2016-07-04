@@ -80,12 +80,10 @@ dtb-$(CONFIG_ARCH_MSM8909) += msm8909-sim.dtb \
 	apq8009-512mb-mtp-wcd9326-refboard.dtb
 
 ifeq ($(CONFIG_MACH_WT86518),y)
-ifeq ($(CONFIG_MACH_LENOVO_A6000),y)
-dtb-$(CONFIG_ARCH_MSM8916) += msm8916-wt86518.dtb
-endif
-ifeq ($(CONFIG_MACH_LENOVO_A6010),y)
-dtb-$(CONFIG_ARCH_MSM8916) += msm8916-wt86528.dtb
-endif
+dtb-$(CONFIG_MACH_LENOVO_A6000) += msm8916-wt86518.dtb
+dtb-$(CONFIG_MACH_LENOVO_A6010) += msm8916-wt86528.dtb
+else ifeq ($(CONFIG_MACH_SAMSUNG),y)
+dtb-$(CONFIG_MACH_GT58WIFI_EUR_OPEN) += msm8916-gt58wifi.dtb
 else
 dtb-$(CONFIG_ARCH_MSM8916) += msm8916-cdp.dtb \
 	msm8916-cdp-smb1360.dtb \
