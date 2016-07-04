@@ -76,6 +76,10 @@ static atomic_t quat_mi2s_clk_ref;
 static atomic_t quin_mi2s_clk_ref;
 static atomic_t auxpcm_mi2s_clk_ref;
 
+#ifdef CONFIG_AUDIO_SPEAKER_OUT_MAXIM_AMP_ENABLE
+static int maxim_amp_gpio;
+#endif
+
 static int msm8952_enable_dig_cdc_clk(struct snd_soc_codec *codec, int enable,
 					bool dapm);
 static bool msm8952_swap_gnd_mic(struct snd_soc_codec *codec);
@@ -1503,6 +1507,19 @@ static void msm_sec_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	}
 }
 
+#ifdef CONFIG_AUDIO_SPEAKER_OUT_MAXIM_AMP_ENABLE
+void maxim_amp_enable(int enable)
+{
+	if(enable) {
+		gpio_direction_output(maxim_amp_gpio, 1);
+		pr_debug("%s(): maxim amp enable,\n", __func__);
+	} else {
+		gpio_direction_output(maxim_amp_gpio, 0);
+		pr_debug("%s(): maxim amp disable,\n", __func__);
+	}
+}
+#endif
+
 static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
@@ -1540,6 +1557,11 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		if (ret < 0)
 			pr_err("%s: set fmt cpu dai failed\n", __func__);
 	}
+
+#ifdef CONFIG_AUDIO_SPEAKER_OUT_MAXIM_AMP_ENABLE
+	msm8x16_wcd_speaker_boost_force_enable(1);
+#endif
+
 	return ret;
 err:
 	ret = msm_mi2s_sclk_ctl(substream, false);
@@ -1551,6 +1573,10 @@ err:
 static void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 {
 	int ret;
+	
+#ifdef CONFIG_AUDIO_SPEAKER_OUT_MAXIM_AMP_ENABLE
+	msm8x16_wcd_speaker_boost_force_enable(0);
+#endif
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
 				substream->name, substream->stream);
@@ -3307,6 +3333,16 @@ parse_mclk_freq:
 	if (ret < 0)
 		pr_err("%s:  doesn't support external speaker pa\n",
 				__func__);
+
+#ifdef CONFIG_AUDIO_SPEAKER_OUT_MAXIM_AMP_ENABLE
+	maxim_amp_gpio = of_get_named_gpio(pdev->dev.of_node, "qcom,amp-gpio", 0);
+	ret = gpio_request(maxim_amp_gpio, "amp_en");
+	if (ret) {
+		pr_err("%s : gpio_request failed for %d\n", __func__,
+			100);
+	}
+	gpio_direction_output(maxim_amp_gpio, 0);
+#endif
 
 	ret = of_property_read_string(pdev->dev.of_node,
 		hs_micbias_type, &type);
