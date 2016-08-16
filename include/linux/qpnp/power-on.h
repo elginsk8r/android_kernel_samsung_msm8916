@@ -66,6 +66,9 @@ int qpnp_pon_is_warm_reset(void);
 int qpnp_pon_trigger_config(enum pon_trigger_source pon_src, bool enable);
 int qpnp_pon_wd_config(bool enable);
 int qpnp_pon_set_restart_reason(enum pon_restart_reason reason);
+#if defined(CONFIG_QPNP_RESIN)
+int qpnp_resin_state(void);
+#endif
 bool qpnp_pon_check_hard_reset_stored(void);
 
 #else
@@ -91,6 +94,12 @@ static inline bool qpnp_pon_check_hard_reset_stored(void)
 {
 	return false;
 }
+#if defined(CONFIG_QPNP_RESIN)
+static inline int qpnp_resin_state(void)
+{
+	return -ENODEV;
+}
+#endif
 #endif
 
 #endif
