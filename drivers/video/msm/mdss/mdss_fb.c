@@ -56,6 +56,10 @@
 #include "mdss_mdp.h"
 #include "mdp3_ctrl.h"
 
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+#include "samsung/ss_dsi_panel_common.h" /* UTIL HEADER */
+#endif
+
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
 #else
@@ -1980,6 +1984,9 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			     int op_enable)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	struct samsung_display_driver_data *vdd = samsung_get_vdd();
+#endif
 	int ret = 0;
 	int cur_power_state, req_power_state = MDSS_PANEL_POWER_OFF;
 	char trace_buffer[32];
@@ -2027,6 +2034,11 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 				blank_mode = FB_BLANK_POWERDOWN;
 		}
 	}
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	if (info->node <= (SUPPORT_PANEL_COUNT - 1))
+		vdd->vdd_blank_mode[info->node] =  blank_mode;
+#endif
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
@@ -5165,3 +5177,21 @@ void mdss_fb_calc_fps(struct msm_fb_data_type *mfd)
 		mfd->fps_info.frame_count = 0;
 	}
 }
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+void mdss_samsung_update_brightness_value(void)
+{
+	int bl_lvl;
+	struct samsung_display_driver_data *vdd = samsung_get_vdd();
+	struct msm_fb_data_type *mfd = dev_get_drvdata(backlight_led.dev->parent);
+
+	if((vdd->bl_level == 0) && (backlight_led.brightness != 0)) {
+		MDSS_BRIGHT_TO_BL(bl_lvl, backlight_led.brightness, mfd->panel_info->bl_max,
+				mfd->panel_info->brightness_max);
+		if (!IS_CALIB_MODE_BL(mfd))
+			mdss_fb_scale_bl(mfd, &bl_lvl);
+		vdd->bl_level = bl_lvl;
+	}
+}
+EXPORT_SYMBOL(mdss_samsung_update_brightness_value);
+#endif

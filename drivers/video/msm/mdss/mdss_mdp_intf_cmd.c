@@ -45,6 +45,7 @@ enum mdss_mdp_cmd_autorefresh_state {
 	MDP_AUTOREFRESH_OFF_REQUESTED
 };
 
+#if !defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 struct mdss_mdp_cmd_ctx {
 	struct mdss_mdp_ctl *ctl;
 
@@ -105,6 +106,7 @@ struct mdss_mdp_cmd_ctx {
 	u32 pp_timeout_report_cnt;
 	bool pingpong_split_slave;
 };
+#endif
 
 struct mdss_mdp_cmd_ctx mdss_mdp_cmd_ctx_list[MAX_SESSIONS];
 
@@ -1444,7 +1446,9 @@ static void mdss_mdp_cmd_autorefresh_pp_done(void *arg)
 
 static void pingpong_done_work(struct work_struct *work)
 {
+#if !defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 	u32 status;
+#endif
 	struct mdss_mdp_cmd_ctx *ctx =
 		container_of(work, typeof(*ctx), pp_done_work);
 	struct mdss_mdp_ctl *ctl = ctx->ctl;
@@ -1453,9 +1457,11 @@ static void pingpong_done_work(struct work_struct *work)
 		while (atomic_add_unless(&ctx->pp_done_cnt, -1, 0))
 			mdss_mdp_ctl_notify(ctx->ctl, MDP_NOTIFY_FRAME_DONE);
 
+#if !defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
 		status = mdss_mdp_ctl_perf_get_transaction_status(ctx->ctl);
 		if (status == 0)
 			mdss_mdp_ctl_perf_release_bw(ctx->ctl);
+#endif
 
 		if (!ctl->is_master)
 			ctl = mdss_mdp_get_main_ctl(ctl);
@@ -1849,6 +1855,12 @@ int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	int ret = 0;
 
 	pdata = ctl->panel_data;
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	/* Turning off panel & mdp to initialize panel init-seq at kick-off*/
+	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK, NULL);
+	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_OFF, NULL);
+#endif
 
 	clk_ctrl.state = MDSS_DSI_CLK_OFF;
 	clk_ctrl.client = DSI_CLK_REQ_MDP_CLIENT;

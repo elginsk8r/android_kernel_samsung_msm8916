@@ -330,6 +330,9 @@ struct mdss_mdp_ctl_intfs_ops {
 	int (*wait_fnc)(struct mdss_mdp_ctl *ctl, void *arg);
 	int (*wait_vsync_fnc)(struct mdss_mdp_ctl *ctl);
 	int (*wait_pingpong)(struct mdss_mdp_ctl *ctl, void *arg);
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	int (*wait_video_pingpong) (struct mdss_mdp_ctl *ctl, void *arg);
+#endif
 	u32 (*read_line_cnt_fnc)(struct mdss_mdp_ctl *);
 	int (*add_vsync_handler)(struct mdss_mdp_ctl *,
 					struct mdss_mdp_vsync_handler *);
@@ -532,7 +535,9 @@ struct mdss_mdp_frc_fsm {
 struct mdss_mdp_ctl {
 	u32 num;
 	char __iomem *base;
-
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	resource_size_t physical_base;
+#endif
 	u32 ref_cnt;
 	int power_state;
 
@@ -1046,6 +1051,32 @@ struct mdss_mdp_commit_cb {
 	int (*commit_cb_fnc) (enum mdp_commit_stage_type commit_state,
 		void *data);
 };
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+struct mdss_mdp_cmd_ctx {
+	struct mdss_mdp_ctl *ctl;
+	u32 pp_num;
+	u8 ref_cnt;
+	struct completion stop_comp;
+	wait_queue_head_t pp_waitq;
+	struct list_head vsync_handlers;
+	int panel_power_state;
+	atomic_t koff_cnt;
+	u32 intf_stopped;
+	int clk_enabled;
+	int vsync_enabled;
+	int rdptr_enabled;
+	struct mutex clk_mtx;
+	spinlock_t clk_lock;
+	spinlock_t koff_lock;
+	struct work_struct clk_work;
+	struct work_struct pp_done_work;
+	atomic_t pp_done_cnt;
+	struct mdss_intf_recovery intf_recovery;
+	struct mdss_mdp_cmd_ctx *sync_ctx; /* for partial update */
+	u32 pp_timeout_report_cnt;
+};
+#endif
 
 /**
  * enum mdss_screen_state - Screen states that MDP can be forced into
@@ -1973,4 +2004,10 @@ void mdss_mdp_free_layer_pp_info(struct mdp_input_layer *layer)
 }
 
 #endif /* CONFIG_FB_MSM_MDP_NONE */
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+void mdss_dsi_check_te(void);
+void mdss_mdp_underrun_clk_info(void);
+#endif
+
 #endif /* MDSS_MDP_H */
