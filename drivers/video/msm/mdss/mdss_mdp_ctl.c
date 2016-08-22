@@ -1819,6 +1819,9 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 {
 	struct mdss_mdp_pipe *left_plist[MAX_PIPES_PER_LM];
 	struct mdss_mdp_pipe *right_plist[MAX_PIPES_PER_LM];
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+#endif
 	int i, left_cnt = 0, right_cnt = 0;
 
 	for (i = 0; i < MAX_PIPES_PER_LM; i++) {
@@ -1847,6 +1850,14 @@ static void mdss_mdp_perf_calc_ctl(struct mdss_mdp_ctl *ctl,
 				&mdss_res->ib_factor));
 		perf->bw_writeback = apply_fudge_factor(perf->bw_writeback,
 				&mdss_res->ib_factor);
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+		if (left_cnt == 1) {
+			mdata->ib_factor_single.numer = 11;
+			mdata->ib_factor_single.denom = 10;
+			perf->bw_ctl = apply_fudge_factor(perf->bw_ctl,
+				&mdss_res->ib_factor_single);
+		}
+#endif
 	}
 	pr_debug("ctl=%d clk_rate=%u\n", ctl->num, perf->mdp_clk_rate);
 	pr_debug("bw_overlap=%llu bw_prefill=%llu prefill_bytes=%d\n",
@@ -4967,6 +4978,10 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata,
 		head[i].num = i;
 		head[i].base = (mdata->mdss_io.base) + ctl_offsets[i];
 		head[i].ref_cnt = 0;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+		head[i].physical_base = ctl_offsets[i];
+#endif
+
 	}
 
 	if (mdata->wfd_mode == MDSS_MDP_WFD_SHARED) {
@@ -5413,6 +5428,10 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	struct mdss_mdp_commit_cb *commit_cb)
 {
 	struct mdss_mdp_ctl *sctl = NULL;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	struct mdss_overlay_private *mdp5_data = NULL;
+	struct mdss_mdp_pipe *pipe, *next;
+#endif
 	int ret = 0;
 	bool is_bw_released, split_lm_valid;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -5681,6 +5700,28 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 
 	mdss_mdp_mixer_update_pipe_map(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 	mdss_mdp_mixer_update_pipe_map(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	if(ctl->mfd) {
+		mdp5_data = mfd_to_mdp5_data(ctl->mfd);
+		if (mdp5_data && csc_change == 1) {
+			mutex_lock(&mdp5_data->list_lock);
+			list_for_each_entry_safe(pipe, next, &mdp5_data->pipes_used, list) {
+				if (pipe->type == MDSS_MDP_PIPE_TYPE_VIG) {
+					if (ctl->wait_video_pingpong) {
+						mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_COMP, ctl->num);
+						ctl->wait_video_pingpong(ctl, NULL);
+					}
+					pr_info(" mdss_mdp_csc_setup start\n");
+					mdss_mdp_csc_setup(MDSS_MDP_BLOCK_SSPP, pipe->num,
+									MDSS_MDP_CSC_YUV2RGB_601FR);
+					csc_change = 0;
+				}
+			}
+			mutex_unlock(&mdp5_data->list_lock);
+		}
+	}
+#endif
 
 	/* right-only kickoff */
 	if (!ctl->mixer_left->valid_roi &&

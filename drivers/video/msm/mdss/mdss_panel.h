@@ -46,6 +46,8 @@ enum fps_resolution {
 #define SIM_SW_TE_PANEL	"sim-swte"
 #define SIM_HW_TE_PANEL	"sim-hwte"
 
+#define MAX_PANEL_NAME_SIZE 100
+
 /* panel type list */
 #define NO_PANEL		0xffff	/* No Panel */
 #define MDDI_PANEL		1	/* MDDI */
@@ -122,6 +124,9 @@ enum {
 	MDSS_PANEL_BLANK_BLANK = 0,
 	MDSS_PANEL_BLANK_UNBLANK,
 	MDSS_PANEL_BLANK_LOW_POWER,
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	MDSS_PANEL_BLANK_READY_TO_UNBLANK,
+#endif
 };
 
 
@@ -279,6 +284,10 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_RESET_WRITE_PTR,
 	MDSS_EVENT_PANEL_TIMING_SWITCH,
 	MDSS_EVENT_UPDATE_PARAMS,
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	MDSS_SAMSUNG_EVENT_FRAME_UPDATE,
+	MDSS_SAMSUNG_EVENT_FB_EVENT_CALLBACK,
+#endif
 	MDSS_EVENT_MAX,
 };
 
@@ -430,6 +439,11 @@ struct mipi_panel_info {
 	u32  init_delay;
 	u32  post_init_delay;
 	u8 default_lanes;
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	u32  power_off_delay;
+	u32  additional_delay;
+#endif
 };
 
 struct edp_panel_info {
@@ -649,6 +663,9 @@ struct mdss_panel_info {
 	u32 rst_seq[MDSS_DSI_RST_SEQ_LEN];
 	u32 rst_seq_len;
 	u32 vic; /* video identification code */
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	int bklt_ctrl; /* backlight ctrl */
+#endif
 	struct mdss_rect roi;
 	int pwm_pmic_gpio;
 	int pwm_lpg_chan;
@@ -687,6 +704,9 @@ struct mdss_panel_info {
 	u32 partial_update_roi_merge;
 	struct ion_handle *splash_ihdl;
 	int panel_power_state;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	u32 panel_power_on;
+#endif
 	int blank_state;
 	int compression_mode;
 
@@ -762,6 +782,7 @@ struct mdss_panel_info {
 	/* debugfs structure for the panel */
 	struct mdss_panel_debugfs_info *debugfs_info;
 
+<<<<<<< HEAD
 	/* persistence mode on/off */
 	bool persist_mode;
 
@@ -801,13 +822,41 @@ struct mdss_panel_timing {
 
 	struct mdss_mdp_pp_tear_check te;
 	struct mdss_panel_roi_alignment roi_alignment;
+=======
+	struct mdss_livedisplay_ctx *livedisplay;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	int panel_state;
+#endif
+>>>>>>> 0ef694665b07 (mdss: support samsung devices)
 };
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+struct mipi_samsung_driver_data {
+	struct msm_fb_data_type *mfd;
+	struct mdss_panel_data *pdata;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
+	struct mutex lock;
+	char panel_name[MAX_PANEL_NAME_SIZE];
+	int panel;
+	unsigned int manufacture_id;
+	unsigned int manufacture_date;
+	char ddi_id[5];
+	unsigned int id3;
+	struct smartdim_conf *sdimconf;
+	struct lcd_device *lcd_device;
+	void *mdss_panel_data;
+	void *mdss_dsi_ctrl_pdata;
+};
+#endif
 
 struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
 	void (*set_backlight) (struct mdss_panel_data *pdata, u32 bl_level);
 	int (*apply_display_setting)(struct mdss_panel_data *pdata, u32 mode);
 	unsigned char *mmss_cc_base;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	struct mipi_samsung_driver_data samsung_pdata;
+#endif
 
 	/**
 	 * event_handler() - callback handler for MDP core events
@@ -832,10 +881,16 @@ struct mdss_panel_data {
 	/* To store dsc cfg name passed by bootloader */
 	char dsc_cfg_np_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_panel_data *next;
+<<<<<<< HEAD
 
 	int panel_te_gpio;
 	int panel_en_gpio;
 	struct completion te_done;
+=======
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	void *panel_private;
+#endif
+>>>>>>> 0ef694665b07 (mdss: support samsung devices)
 };
 
 struct mdss_panel_debugfs_info {

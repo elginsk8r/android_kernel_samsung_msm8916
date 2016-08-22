@@ -289,6 +289,11 @@ struct mdss_data_type {
 	struct mdss_util_intf *mdss_util;
 	struct mdss_panel_data *pdata;
 
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	char __iomem *mdss_base;
+	size_t mdp_reg_size;
+#endif
+
 	struct platform_device *pdev;
 	struct dss_io_data mdss_io;
 	struct dss_io_data vbif_io;
@@ -403,6 +408,9 @@ struct mdss_data_type {
 	struct mult_factor ib_factor_overlap;
 	struct mult_factor clk_factor;
 	struct mult_factor per_pipe_ib_factor;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	struct mult_factor ib_factor_single;
+#endif
 	bool apply_post_scale_bytes;
 	bool hflip_buffer_reused;
 

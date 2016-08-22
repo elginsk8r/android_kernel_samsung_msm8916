@@ -25,6 +25,9 @@
 #include "mdss_panel.h"
 #include "mdss_debug.h"
 #include "mdss_mdp_trace.h"
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+#include "samsung/ss_dsi_panel_common.h"
+#endif
 
 /* wait for at least 2 vsyncs for lowest refresh rate (24hz) */
 #define VSYNC_TIMEOUT_US 100000
@@ -75,6 +78,9 @@ struct mdss_mdp_video_ctx {
 	bool polling_en;
 	u32 poll_cnt;
 	struct completion vsync_comp;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	struct completion pp_comp;
+#endif
 	int wait_pending;
 
 	atomic_t vsync_ref;
@@ -854,6 +860,11 @@ static int mdss_mdp_video_ctx_stop(struct mdss_mdp_ctl *ctl,
 		ctx->intf_num, NULL, NULL);
 	mdss_mdp_set_intf_intr_callback(ctx, MDSS_MDP_INTF_IRQ_PROG_LINE,
 		NULL, NULL);
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	if(ctl->intf_type == MDSS_INTF_DSI)
+		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP,
+			ctl->mixer_left->num, NULL, NULL);
+#endif
 
 	ctx->ref_cnt--;
 end:
@@ -1555,6 +1566,10 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 	u32 data, flush;
 	struct mdss_mdp_video_ctx *ctx;
 	struct mdss_mdp_ctl *sctl;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct samsung_display_driver_data *vdd = NULL;
+#endif
 
 	if (!ctl) {
 		pr_err("invalid ctl\n");
@@ -1581,6 +1596,42 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 		sctl->panel_data->panel_info.cont_splash_enabled = 0;
 	else if (ctl->panel_data->next && is_pingpong_split(ctl->mfd))
 		ctl->panel_data->next->panel_info.cont_splash_enabled = 0;
+
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+				panel_data);
+	vdd = check_valid_ctrl(ctrl_pdata);
+	if (vdd->panel_func.samsung_tft_blic_init
+		 && vdd->dtsi_data[ctrl_pdata->ndx].tft_common_support) {
+		vdd->panel_func.samsung_tft_blic_init(ctrl_pdata);
+	} else if (handoff) {
+		ctl->force_screen_state = MDSS_SCREEN_FORCE_BLANK;
+		mdss_mdp_display_commit(ctl, NULL, NULL);
+		mdss_mdp_display_wait4comp(ctl);
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK, NULL);
+
+		mdp_video_write(ctx,	MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 0);
+		/*
+		 * Need to wait for atleast one vsync time for proper
+		 * TG OFF before doing changes on interfaces
+		 */
+		msleep(20);
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_OFF, NULL);
+
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_LINK_READY, NULL);
+		mdss_mdp_ctl_intf_event(ctl,MDSS_EVENT_UNBLANK, NULL);
+		mdp_video_write(ctx,	MDSS_MDP_REG_INTF_TIMING_ENGINE_EN, 1);
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_ON, NULL);
+		/*
+		 * Add memory barrier to make sure the MDP Video
+		 * mode engine is enabled before next frame is sent
+		 */
+		mb();
+		ctl->force_screen_state = MDSS_SCREEN_DEFAULT;
+		mdss_mdp_display_commit(ctl, NULL, NULL);
+		mdss_mdp_display_wait4comp(ctl);
+	}
+#endif
 
 	if (!handoff) {
 		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_BEGIN,
@@ -1745,6 +1796,43 @@ static int mdss_mdp_video_cdm_setup(struct mdss_mdp_cdm *cdm,
 	return mdss_mdp_cdm_setup(cdm, &setup);
 }
 
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+static void mdss_mdp_video_pingpong_done(void *arg)
+{
+	struct mdss_mdp_ctl *ctl = arg;
+	struct mdss_mdp_video_ctx *ctx;
+	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
+	pr_info("%s:mdss_mdp_isr ctl->mixer_left->num = %d\n", __func__, ctl->mixer_left->num);
+
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return;
+	}
+	if(ctl->intf_type == MDSS_INTF_DSI)
+		mdss_mdp_irq_disable_nosync(MDSS_MDP_IRQ_PING_PONG_COMP, ctl->mixer_left->num);
+	complete_all(&ctx->pp_comp);
+
+}
+static int mdss_mdp_video_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
+{
+	struct mdss_mdp_video_ctx *ctx;
+	int rc = 0;
+	ctx = (struct mdss_mdp_video_ctx *) ctl->priv_data;
+	pr_info("%s: mdss_mdp_isr ctl->mixer_left->num = %d\n", __func__, ctl->mixer_left->num);
+
+	if (!ctx) {
+		pr_err("invalid ctx\n");
+		return -ENODEV;
+	}
+	INIT_COMPLETION(ctx->pp_comp);
+
+	rc = wait_for_completion_timeout(
+		&ctx->pp_comp, msecs_to_jiffies(20));
+
+	return rc;
+}
+#endif
+
 static void mdss_mdp_handoff_programmable_fetch(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_video_ctx *ctx)
 {
@@ -1780,6 +1868,9 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 	ctx->ctl = ctl;
 	ctx->intf_type = ctl->intf_type;
 	init_completion(&ctx->vsync_comp);
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	init_completion(&ctx->pp_comp);
+#endif
 	spin_lock_init(&ctx->vsync_lock);
 	spin_lock_init(&ctx->dfps_lock);
 	mutex_init(&ctx->vsync_mtx);
@@ -1849,6 +1940,12 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 				mdss_mdp_video_underrun_intr_done, ctl);
 	mdss_mdp_set_intf_intr_callback(ctx, MDSS_MDP_INTF_IRQ_PROG_LINE,
 			mdss_mdp_video_lineptr_intr_done, ctl);
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	if(ctl->intf_type == MDSS_INTF_DSI)
+		mdss_mdp_set_intr_callback(MDSS_MDP_IRQ_PING_PONG_COMP,
+					ctl->mixer_left->num,
+					mdss_mdp_video_pingpong_done, ctl);
+#endif
 
 	dst_bpp = pinfo->fbc.enabled ? (pinfo->fbc.target_bpp) : (pinfo->bpp);
 
@@ -2176,6 +2273,12 @@ int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl)
 	ctl->ops.config_fps_fnc = mdss_mdp_video_config_fps;
 	ctl->ops.early_wake_up_fnc = mdss_mdp_video_early_wake_up;
 	ctl->ops.update_lineptr = mdss_mdp_video_lineptr_ctrl;
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	if(ctl->intf_type == MDSS_INTF_DSI)
+		ctl->wait_video_pingpong = mdss_mdp_video_wait4pingpong;
+	else
+		ctl->wait_video_pingpong = NULL;
+#endif
 
 	return 0;
 }

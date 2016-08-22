@@ -39,6 +39,10 @@
 #define MDSS_DSI_DSIPHY_CTRL_0			0x170
 #define MDSS_DSI_DSIPHY_CTRL_1			0x174
 
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+#include "samsung/ss_dsi_panel_common.h"
+#endif
+
 #define SW_RESET BIT(2)
 #define SW_RESET_PLL BIT(0)
 #define PWRDN_B BIT(7)
@@ -1447,6 +1451,10 @@ error:
 void mdss_dsi_link_clk_deinit(struct device *dev,
 	struct mdss_dsi_ctrl_pdata *ctrl)
 {
+#if defined(CONFIG_FB_MSM_MDSS_SAMSUNG)
+	if (ctrl->lvds_clk)
+		devm_clk_put(dev, ctrl->lvds_clk);
+#endif
 	if (ctrl->vco_dummy_clk)
 		devm_clk_put(dev, ctrl->vco_dummy_clk);
 	if (ctrl->pixel_clk_rcg)
@@ -1473,6 +1481,15 @@ int mdss_dsi_link_clk_init(struct platform_device *pdev,
 	}
 
 	dev = &pdev->dev;
+
+#ifdef CONFIG_FB_MSM_MDSS_SAMSUNG
+	ctrl->lvds_clk = clk_get(dev, "lvds_clk");
+	if (IS_ERR(ctrl->lvds_clk)) {
+		pr_err("%s: Unable to get lvds_clk clk.\n",
+			__func__);
+		ctrl->lvds_clk = NULL;
+	}
+#endif
 
 	/* Mandatory Clocks */
 	ctrl->byte_clk = devm_clk_get(dev, "byte_clk");
