@@ -239,6 +239,9 @@ static void msm_restart_prepare(const char *cmd)
 			((cmd != NULL && cmd[0] != '\0') &&
 			strcmp(cmd, "recovery") &&
 			strcmp(cmd, "bootloader") &&
+#ifdef CONFIG_MACH_SAMSUNG
+			strcmp(cmd, "download") &&
+#endif
 			strcmp(cmd, "rtc")))
 			need_warm_reset = true;
 	} else {
@@ -282,6 +285,12 @@ static void msm_restart_prepare(const char *cmd)
                         qpnp_pon_set_restart_reason(
                                 PON_RESTART_REASON_KEYS_CLEAR);
                         __raw_writel(0x7766550a, restart_reason);
+#ifdef CONFIG_MACH_SAMSUNG
+				} else if (!strncmp(cmd, "download", 8)) {
+					qpnp_pon_set_restart_reason(
+						PON_RESTART_REASON_DOWNLOAD);
+					__raw_writel(0x12345671, restart_reason);
+#endif
 #ifdef CONFIG_MACH_WT86518
     } else if (!strncmp(cmd, "fastmmi", 7)){	
 			       __raw_writel(0x77665505, restart_reason);	
