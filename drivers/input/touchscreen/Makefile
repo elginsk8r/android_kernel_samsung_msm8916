@@ -84,5 +84,6 @@ obj-$(CONFIG_TOUCHSCREEN_BU21150)	+= bu21150.o
 obj-$(CONFIG_INPUT_MT_WRAPPER)		+= input_mt_wrapper.o
 obj-$(CONFIG_TOUCHSCREEN_IT7260_I2C)    += it7258_ts_i2c.o
 obj-$(CONFIG_WAKE_GESTURES)		+= wake_gestures.o
+obj-$(CONFIG_TOUCHSCREEN_IST30XX_CORE3) += imagis_core3/
 obj-$(CONFIG_TOUCHSCREEN_ATMEL_MXT1664T) += mxt_t/
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX_BT532) +=  zinitix/
