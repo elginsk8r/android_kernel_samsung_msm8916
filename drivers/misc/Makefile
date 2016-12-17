@@ -70,3 +70,4 @@ obj-$(CONFIG_QCOM_LIQUID_DOCK)	+= qcom_liquid_dock.o
 obj-$(CONFIG_SAMSUNG_JACK)	+= sec_jack.o
 obj-y				+= qcom/
 obj-y				+= hardware_info.o
+obj-y				+= muic/
