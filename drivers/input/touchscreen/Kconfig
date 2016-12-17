@@ -1150,6 +1150,8 @@ config TOUCHSCREEN_HIMAX_CHIPSET
 
 source "drivers/input/touchscreen/hxchipset/Kconfig"
 
+source "drivers/input/touchscreen/imagis_core3/Kconfig"
+
 source "drivers/input/touchscreen/mxt_t/Kconfig"
 
 source "drivers/input/touchscreen/zinitix/Kconfig"
